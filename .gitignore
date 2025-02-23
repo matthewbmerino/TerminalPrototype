@@ -1,0 +1,13 @@
+# Ignore config file
+config.json
+
+# Xcode
+*.xcuserstate
+*.xcworkspace
+*.xcodeproj/xcuserdata/
+DerivedData/
+
+# macOS
+.DS_Store
+
+config.json
