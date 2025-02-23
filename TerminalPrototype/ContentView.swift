@@ -30,7 +30,7 @@ struct ContentView: View {
                     WelcomePage()
                     FeaturesPage()
                     LoginPage()
-                    DashboardPage()
+//                    DashboardPage()
                 }
                 .tabViewStyle(.page)
                 // .foregroundStyle(.white) // Uncomment if you need white text/icons

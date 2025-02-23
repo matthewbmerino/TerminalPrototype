@@ -18,11 +18,11 @@ struct FeaturesPage: View {
                 .foregroundColor(.white)
             
             FeatureCard(iconName: "chart.xyaxis.line",
-                        description: "Visualize Holdings")
+                        description: "Visualize Performance")
             FeatureCard(iconName: "text.bubble.fill",
-                        description: "Research with AI")
-//            FeatureCard(iconName: "cup.and.saucer.fill",
-//                        description: "Fuel Your Decisions")
+                        description: "AI Research Tools")
+            FeatureCard(iconName: "person.2.circle.fill",
+                        description: "Privately Share")
         }
         .padding()
     }

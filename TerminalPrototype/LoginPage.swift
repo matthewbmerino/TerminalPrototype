@@ -8,8 +8,9 @@
 import SwiftUI
 
 struct LoginPage: View {
-    @State private var username: String = "" // Stores username or email input
-    @State private var password: String = "" // Stores password input
+    @State private var username: String = ""
+    @State private var password: String = ""
+    @State private var isLoggedIn: Bool = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -18,30 +19,27 @@ struct LoginPage: View {
                 .foregroundStyle(.white)
                 .padding(.bottom, 20)
             
-            // Username/Email field
             TextField("Username or Email", text: $username)
                 .padding()
-                .background(Color.black.opacity(0.0)) // Transparent background
-                .foregroundStyle(.white) // White text color
-                .border(Color.gray, width: 1) // Border with gray color
-                .cornerRadius(8) // Optional: rounded corners
+                .background(Color.black.opacity(0.0)) // Already transparent
+                .foregroundStyle(.white)
+                .border(Color.white, width: 1)
+                .cornerRadius(8)
                 .padding(.horizontal)
-                .submitLabel(.next) // Keyboard "Next" button
+                .submitLabel(.next)
             
-            // Password field
             SecureField("Password", text: $password)
                 .padding()
-                .background(Color.black.opacity(0.0)) // Transparent background
-                .foregroundStyle(.white) // White text color
-                .border(Color.gray, width: 1) // Border with gray color
-                .cornerRadius(8) // Optional: rounded corners
+                .background(Color.black.opacity(0.0)) // Already transparent
+                .foregroundStyle(.white)
+                .border(Color.white, width: 1)
+                .cornerRadius(8)
                 .padding(.horizontal)
-                .submitLabel(.go) // Keyboard "Go" button
+                .submitLabel(.go)
             
-            // Login button
             Button(action: {
-                // Handle login logic here (e.g., authentication)
                 print("Login attempted with username: \(username), password: \(password)")
+                isLoggedIn = true
             }) {
                 Text("Sign In")
                     .font(.headline)
@@ -54,19 +52,12 @@ struct LoginPage: View {
             .padding(.horizontal)
         }
         .padding()
+        .background(Color.clear) // Explicitly make the entire view's background transparent
+        .fullScreenCover(isPresented: $isLoggedIn) {
+            DashboardPage()
+        }
     }
 }
-
-//#Preview {
-//    LoginPage()
-//        .background(
-//            LinearGradient(
-//                gradient: Gradient(colors: [.blue, .purple]),
-//                startPoint: .top,
-//                endPoint: .bottom
-//            )
-//        ) // Gradient background for preview visibility
-//}
 
 #Preview {
     LoginPage()
