@@ -14,17 +14,29 @@ let gradientColors: [Color] = [
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            TabView {
-                        WelcomePage()
-                        FeaturesPage()
-                        DashboardPage()
-                    }
-                    .background(Gradient(colors: gradientColors))
-                    .tabViewStyle(.page)
-//                    .foregroundStyle(.white)
+        ZStack {
+            // Full-screen gradient background
+            LinearGradient(
+                gradient: Gradient(colors: gradientColors),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .edgesIgnoringSafeArea(.all)
+            
+            // Content layered on top
+            VStack {
+                TabView {
+                    WelcomePage()
+                    FeaturesPage()
+                    LoginPage()
+                    DashboardPage()
+                }
+                .tabViewStyle(.page)
+                // .foregroundStyle(.white) // Uncomment if you need white text/icons
+            }
+            .padding() // Padding inside the content, not affecting the background
         }
-        .padding()
     }
 }
 
