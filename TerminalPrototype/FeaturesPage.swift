@@ -11,6 +11,7 @@ struct FeaturesPage: View {
     var body: some View {
         VStack {
             Text("Elevate Your Portfolio")
+//                .padding()
                 .font(.title)
                 .fontWeight(.semibold)
                 .padding(.bottom)
