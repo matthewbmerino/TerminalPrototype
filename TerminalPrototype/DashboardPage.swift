@@ -536,7 +536,7 @@ import Charts
 struct StockData: Identifiable {
     let id = UUID()
     let date: Date
-    let price: Double // close
+    let price: Double
     let open: Double
     let high: Double
     let low: Double
@@ -614,16 +614,18 @@ struct AlphaVantageConfig {
 struct DesignSystem {
     static let primaryColor = Color.blue.opacity(0.9)
     static let backgroundColor = Color.black
-    static let surfaceColor = Color(.systemGray6).opacity(0.1)
+    static let surfaceColor = Color(.systemGray6).opacity(0.15)
     static let accentColor = Color.blue
     static let textColor = Color.white
-    static let secondaryTextColor = Color.gray
+    static let secondaryTextColor = Color.gray.opacity(0.8)
     
     static let cornerRadius: CGFloat = 12
     static let padding: CGFloat = 16
+    static let smallPadding: CGFloat = 8
+    static let shadowRadius: CGFloat = 4
 }
 
-// Modern DashboardPage
+// Dashboard Page
 struct DashboardPage: View {
     @State private var stockPrices: [StockData] = []
     @State private var selectedData: StockData?
@@ -634,29 +636,32 @@ struct DashboardPage: View {
     @State private var chartRange: String = "1M"
     @State private var isExpanded: Bool = false
     @State private var selectedStatement: String = "TIME_SERIES_DAILY"
-    @State private var isLogScale: Bool = false // New state for scale type
+    @State private var isLogScale: Bool = false
     
     private let config: AlphaVantageConfig? = AlphaVantageConfig.loadFromFile()
     
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: DesignSystem.padding) {
+                VStack(spacing: DesignSystem.padding * 1.5) {
                     headerView
                     chartView
                     statementButtons
                     dataTableView
                 }
-                .padding(DesignSystem.padding)
+                .padding(.vertical, DesignSystem.padding)
+                .padding(.horizontal, DesignSystem.padding * 1.2)
             }
-            .background(DesignSystem.backgroundColor)
+            .background(DesignSystem.backgroundColor.edgesIgnoringSafeArea(.all))
             .navigationTitle("Market Analysis")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { isExpanded.toggle() }) {
                         Image(systemName: isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                             .foregroundColor(DesignSystem.accentColor)
+                            .font(.system(size: 16, weight: .semibold))
                     }
+                    .padding(DesignSystem.smallPadding)
                 }
             }
         }
@@ -667,9 +672,13 @@ struct DashboardPage: View {
     }
     
     private var headerView: some View {
-        HStack {
+        HStack(alignment: .center, spacing: DesignSystem.padding) {
             TextField("Ticker", text: $tickerSymbol)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .textFieldStyle(PlainTextFieldStyle())
+                .padding(DesignSystem.smallPadding)
+                .background(DesignSystem.surfaceColor)
+                .cornerRadius(DesignSystem.cornerRadius)
+                .foregroundColor(DesignSystem.textColor)
                 .submitLabel(.search)
                 .onSubmit {
                     Task {
@@ -677,15 +686,20 @@ struct DashboardPage: View {
                         await fetchFinancialData()
                     }
                 }
-                .frame(maxWidth: 100)
+                .frame(maxWidth: 120)
             
-            Text(tickerSymbol)
+            Text(tickerSymbol.uppercased())
                 .font(.title2)
-                .fontWeight(.semibold)
+                .fontWeight(.bold)
                 .foregroundColor(DesignSystem.textColor)
+                .minimumScaleFactor(0.8)
             
             Spacer()
         }
+        .padding(DesignSystem.padding)
+        .background(DesignSystem.surfaceColor)
+        .cornerRadius(DesignSystem.cornerRadius)
+        .shadow(color: .black.opacity(0.2), radius: DesignSystem.shadowRadius)
     }
     
     private var chartView: some View {
@@ -693,17 +707,19 @@ struct DashboardPage: View {
             if isLoading && stockPrices.isEmpty {
                 ProgressView()
                     .tint(DesignSystem.accentColor)
-                    .frame(height: 300)
+                    .scaleEffect(1.2)
+                    .frame(height: isExpanded ? 400 : 300)
             } else if let errorMessage = errorMessage, stockPrices.isEmpty {
                 Text(errorMessage)
                     .foregroundColor(.red)
-                    .frame(height: 300)
+                    .font(.subheadline)
+                    .frame(height: isExpanded ? 400 : 300)
             } else {
                 Chart {
                     ForEach(stockPrices) { dataPoint in
                         AreaMark(
                             x: .value("Date", dataPoint.date),
-                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price) // Use log for logarithmic scale
+                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price)
                         )
                         .foregroundStyle(
                             Gradient(colors: [
@@ -714,14 +730,14 @@ struct DashboardPage: View {
                         
                         LineMark(
                             x: .value("Date", dataPoint.date),
-                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price) // Use log for logarithmic scale
+                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price)
                         )
                         .foregroundStyle(DesignSystem.primaryColor)
                         .lineStyle(StrokeStyle(lineWidth: 2))
                         
                         PointMark(
                             x: .value("Date", dataPoint.date),
-                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price) // Use log for logarithmic scale
+                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price)
                         )
                         .foregroundStyle(DesignSystem.accentColor)
                         .symbolSize(selectedData?.id == dataPoint.id ? 100 : 0)
@@ -741,16 +757,18 @@ struct DashboardPage: View {
                 }
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .day)) { _ in
-                        AxisGridLine().foregroundStyle(DesignSystem.secondaryTextColor.opacity(0.3))
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                            .foregroundStyle(DesignSystem.secondaryTextColor.opacity(0.2))
                         AxisValueLabel(format: .dateTime.month().day())
                             .foregroundStyle(DesignSystem.secondaryTextColor)
+                            .font(.caption)
                     }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
-                        AxisGridLine().foregroundStyle(DesignSystem.secondaryTextColor.opacity(0.3))
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                            .foregroundStyle(DesignSystem.secondaryTextColor.opacity(0.2))
                         if isLogScale {
-                            // For logarithmic scale, transform the value back for display
                             if let doubleValue = value.as(Double.self) {
                                 AxisValueLabel("\(exp(doubleValue) - 1, format: .currency(code: "USD"))")
                                     .foregroundStyle(DesignSystem.secondaryTextColor)
@@ -762,25 +780,28 @@ struct DashboardPage: View {
                     }
                 }
                 .frame(height: isExpanded ? 400 : 300)
+                .padding(DesignSystem.smallPadding)
                 .background(DesignSystem.surfaceColor)
                 .cornerRadius(DesignSystem.cornerRadius)
+                .shadow(color: .black.opacity(0.2), radius: DesignSystem.shadowRadius)
                 .overlay(
                     selectedData.map { data in
                         ChartAnnotation(data: data)
                     }
                 )
                 
-                HStack {
+                HStack(spacing: DesignSystem.padding) {
                     rangeSelector
                     scaleSelector
                 }
+                .padding(.top, DesignSystem.smallPadding)
             }
         }
     }
     
     private var rangeSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignSystem.smallPadding) {
                 ForEach(["1D", "1W", "1M", "3M", "1Y"], id: \.self) { range in
                     ChartButton(
                         title: range,
@@ -792,12 +813,12 @@ struct DashboardPage: View {
                     )
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.vertical, DesignSystem.smallPadding)
         }
     }
     
     private var scaleSelector: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DesignSystem.smallPadding) {
             ChartButton(
                 title: "Linear",
                 isSelected: !isLogScale,
@@ -813,7 +834,7 @@ struct DashboardPage: View {
     
     private var statementButtons: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignSystem.smallPadding) {
                 StatementButton(title: "Daily", endpoint: "TIME_SERIES_DAILY", isSelected: selectedStatement == "TIME_SERIES_DAILY") {
                     selectedStatement = "TIME_SERIES_DAILY"
                     Task { await fetchFinancialData() }
@@ -835,49 +856,61 @@ struct DashboardPage: View {
                     Task { await fetchFinancialData() }
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.vertical, DesignSystem.smallPadding)
         }
     }
     
     private var dataTableView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignSystem.padding) {
             Text(selectedStatement.replacingOccurrences(of: "_", with: " ").capitalized)
                 .font(.headline)
+                .fontWeight(.semibold)
                 .foregroundColor(DesignSystem.textColor)
+                .padding(.bottom, DesignSystem.smallPadding)
             
             if isLoading && financialData.isEmpty {
                 ProgressView()
                     .tint(DesignSystem.accentColor)
+                    .scaleEffect(1.2)
             } else if let errorMessage = errorMessage, financialData.isEmpty {
                 Text(errorMessage)
                     .foregroundColor(.red)
+                    .font(.subheadline)
             } else {
                 LazyVGrid(
                     columns: [
                         GridItem(.flexible(), alignment: .leading),
                         GridItem(.flexible(), alignment: .trailing)
                     ],
-                    spacing: 8
+                    spacing: DesignSystem.smallPadding
                 ) {
                     tableHeader
                     tableContent
                 }
+                .padding(DesignSystem.padding)
+                .background(DesignSystem.surfaceColor.opacity(0.8))
+                .cornerRadius(DesignSystem.cornerRadius)
             }
         }
         .padding(DesignSystem.padding)
         .background(DesignSystem.surfaceColor)
         .cornerRadius(DesignSystem.cornerRadius)
+        .shadow(color: .black.opacity(0.2), radius: DesignSystem.shadowRadius)
         .frame(maxHeight: isExpanded ? 400 : 200)
     }
     
     private var tableHeader: some View {
         Group {
             Text(selectedStatement == "TIME_SERIES_DAILY" ? "Date" : "Metric")
+                .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(DesignSystem.textColor)
+                .padding(.vertical, DesignSystem.smallPadding / 2)
             Text(selectedStatement == "TIME_SERIES_DAILY" ? "Close" : "Value")
+                .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(DesignSystem.textColor)
+                .padding(.vertical, DesignSystem.smallPadding / 2)
         }
     }
     
@@ -910,16 +943,19 @@ struct DashboardPage: View {
         var body: some View {
             Button(action: action) {
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(isSelected ? DesignSystem.textColor : DesignSystem.secondaryTextColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, DesignSystem.padding)
+                    .padding(.vertical, DesignSystem.smallPadding)
                     .background(
                         Capsule()
                             .fill(isSelected ? DesignSystem.primaryColor : DesignSystem.surfaceColor)
+                            .shadow(color: .black.opacity(isSelected ? 0.2 : 0.1), radius: 2)
                     )
             }
             .buttonStyle(PlainButtonStyle())
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+            .animation(.spring(response: 0.3), value: isSelected)
         }
     }
     
@@ -932,16 +968,19 @@ struct DashboardPage: View {
         var body: some View {
             Button(action: action) {
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(isSelected ? DesignSystem.textColor : DesignSystem.secondaryTextColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, DesignSystem.padding)
+                    .padding(.vertical, DesignSystem.smallPadding)
                     .background(
                         Capsule()
                             .fill(isSelected ? DesignSystem.primaryColor : DesignSystem.surfaceColor)
+                            .shadow(color: .black.opacity(isSelected ? 0.2 : 0.1), radius: 2)
                     )
             }
             .buttonStyle(PlainButtonStyle())
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+            .animation(.spring(response: 0.3), value: isSelected)
         }
     }
     
@@ -949,7 +988,7 @@ struct DashboardPage: View {
         let data: StockData
         
         var body: some View {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DesignSystem.smallPadding) {
                 Text("Date: \(data.date, format: .dateTime.month().day())")
                 Text("Close: \(data.price, format: .currency(code: "USD"))")
                 Text("Open: \(data.open, format: .currency(code: "USD"))")
@@ -957,11 +996,11 @@ struct DashboardPage: View {
                 Text("Low: \(data.low, format: .currency(code: "USD"))")
             }
             .font(.caption)
-            .padding(8)
+            .padding(DesignSystem.padding)
             .background(DesignSystem.backgroundColor.opacity(0.95))
             .foregroundColor(DesignSystem.textColor)
-            .cornerRadius(8)
-            .shadow(radius: 4)
+            .cornerRadius(DesignSystem.cornerRadius)
+            .shadow(color: .black.opacity(0.3), radius: DesignSystem.shadowRadius)
             .position(x: 100, y: 50)
         }
     }
@@ -1095,7 +1134,7 @@ struct DashboardPage: View {
     }
 }
 
-// Modern StockAppView
+// Main App View
 struct StockAppView: View {
     var body: some View {
         TabView {

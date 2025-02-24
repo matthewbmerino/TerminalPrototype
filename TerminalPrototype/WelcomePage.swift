@@ -13,20 +13,19 @@ struct WelcomePage: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 30)
                     .frame(width: 150, height: 150)
+                    .foregroundColor(.black)  // Changed to black
                 
                 Image(systemName: "chart.xyaxis.line")
                     .font(.system(size: 70))
-                    .foregroundColor(.white)
-//                insert picture stuff here and use font sizer, color, etc to fill in black square
-                
+                    .foregroundColor(.white)  // Remains white
             }
             Text("Terminal")
                 .padding()
                 .foregroundColor(.white)
                 .font(.title)
-                .font(.largeTitle).fontWeight(.semibold)
+                .font(.largeTitle)
+                .fontWeight(.semibold)
             Text("by Matthew Merino")
-//                .padding()
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.white)
