@@ -12,7 +12,7 @@ import Charts
 struct StockData: Identifiable {
     let id = UUID()
     let date: Date
-    let price: Double
+    let price: Double  // This will now store adjusted close
     let open: Double
     let high: Double
     let low: Double
@@ -26,6 +26,7 @@ struct AlphaVantageResponse: Codable {
         let high: String
         let low: String
         let close: String
+        let adjustedClose: String
         let volume: String
         
         enum CodingKeys: String, CodingKey {
@@ -33,7 +34,8 @@ struct AlphaVantageResponse: Codable {
             case high = "2. high"
             case low = "3. low"
             case close = "4. close"
-            case volume = "5. volume"
+            case adjustedClose = "5. adjusted close"
+            case volume = "6. volume"
         }
     }
     
@@ -275,7 +277,7 @@ struct DashboardPage: View {
     private var rangeSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: DesignSystem.smallPadding) {
-                ForEach(["1D", "1W", "1M", "3M", "1Y"], id: \.self) { range in
+                ForEach(["1W", "1M", "3M", "1Y", "MAX"], id: \.self) { range in
                     ChartButton(
                         title: range,
                         isSelected: chartRange == range,
@@ -563,7 +565,7 @@ struct DashboardPage: View {
         isLoading = true
         errorMessage = nil
         
-        let urlString = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=\(tickerSymbol)&apikey=\(apiKey)"
+        let urlString = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=\(tickerSymbol)&apikey=\(apiKey)"
         guard let url = URL(string: urlString) else {
             errorMessage = "Invalid URL"
             isLoading = false
@@ -582,7 +584,7 @@ struct DashboardPage: View {
                 let date = dateFormatter.date(from: dateString) ?? Date()
                 return StockData(
                     date: date,
-                    price: Double(timeSeries.close) ?? 0.0,
+                    price: Double(timeSeries.adjustedClose) ?? 0.0,  // Use adjusted close
                     open: Double(timeSeries.open) ?? 0.0,
                     high: Double(timeSeries.high) ?? 0.0,
                     low: Double(timeSeries.low) ?? 0.0,
@@ -594,13 +596,11 @@ struct DashboardPage: View {
             stockPrices = allPrices.filter { data in
                 let calendar = Calendar.current
                 switch chartRange {
-                case "1D":
-                    let startOfDay = calendar.startOfDay(for: now)
-                    return data.date >= startOfDay
                 case "1W": return data.date > calendar.date(byAdding: .weekOfYear, value: -1, to: now)!
                 case "1M": return data.date > calendar.date(byAdding: .month, value: -1, to: now)!
                 case "3M": return data.date > calendar.date(byAdding: .month, value: -3, to: now)!
                 case "1Y": return data.date > calendar.date(byAdding: .year, value: -1, to: now)!
+                case "MAX": return true
                 default: return true
                 }
             }
