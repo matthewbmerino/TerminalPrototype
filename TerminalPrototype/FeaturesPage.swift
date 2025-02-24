@@ -27,7 +27,7 @@ struct FeaturesPage: View {
                 .animation(.easeOut(duration: 0.5), value: visibleIndex)
             
             FeatureCard(iconName: "text.bubble.fill",
-                       description: "Research With AI Tools")
+                       description: "Chat & Research with AI")
                 .opacity(visibleIndex >= 1 ? 1 : 0)
                 .offset(x: visibleIndex >= 1 ? 0 : -20)
                 .scaleEffect(visibleIndex == 1 ? 1.05 : 1.0)
