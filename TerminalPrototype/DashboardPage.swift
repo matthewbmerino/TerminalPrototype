@@ -105,12 +105,11 @@ struct DesignSystem {
 struct DashboardPage: View {
     @State private var stockPrices: [StockData] = []
     @State private var selectedData: StockData?
-    @State private var financialData: [FinancialData] = []
+    @State private var financialData: [[FinancialData]] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var tickerSymbol: String = "AAPL"
     @State private var chartRange: String = "1M"
-    @State private var isExpanded: Bool = false
     @State private var selectedStatement: String = "TIME_SERIES_DAILY"
     @State private var isLogScale: Bool = false
     
@@ -130,16 +129,6 @@ struct DashboardPage: View {
             }
             .background(DesignSystem.backgroundColor.edgesIgnoringSafeArea(.all))
             .navigationTitle("Market Analysis")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { isExpanded.toggle() }) {
-                        Image(systemName: isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                            .foregroundColor(DesignSystem.accentColor)
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                    .padding(DesignSystem.smallPadding)
-                }
-            }
         }
         .task {
             await fetchStockData()
@@ -184,12 +173,12 @@ struct DashboardPage: View {
                 ProgressView()
                     .tint(DesignSystem.accentColor)
                     .scaleEffect(1.2)
-                    .frame(height: isExpanded ? 400 : 300)
+                    .frame(height: 400)
             } else if let errorMessage = errorMessage, stockPrices.isEmpty {
                 Text(errorMessage)
                     .foregroundColor(.red)
                     .font(.subheadline)
-                    .frame(height: isExpanded ? 400 : 300)
+                    .frame(height: 400)
             } else {
                 Chart {
                     ForEach(stockPrices) { dataPoint in
@@ -255,7 +244,7 @@ struct DashboardPage: View {
                         }
                     }
                 }
-                .frame(height: isExpanded ? 400 : 300)
+                .frame(height: 400)
                 .padding(DesignSystem.smallPadding)
                 .background(DesignSystem.surfaceColor)
                 .cornerRadius(DesignSystem.cornerRadius)
@@ -355,7 +344,9 @@ struct DashboardPage: View {
             } else {
                 LazyVGrid(
                     columns: [
-                        GridItem(.flexible(), alignment: .leading),
+                        GridItem(.flexible(minimum: 150), alignment: .leading),
+                        GridItem(.flexible(), alignment: .trailing),
+                        GridItem(.flexible(), alignment: .trailing),
                         GridItem(.flexible(), alignment: .trailing)
                     ],
                     spacing: DesignSystem.smallPadding
@@ -372,17 +363,49 @@ struct DashboardPage: View {
         .background(DesignSystem.surfaceColor)
         .cornerRadius(DesignSystem.cornerRadius)
         .shadow(color: .black.opacity(0.2), radius: DesignSystem.shadowRadius)
-        .frame(maxHeight: isExpanded ? 400 : 200)
+        .frame(maxHeight: 400)
     }
     
+    @ViewBuilder
     private var tableHeader: some View {
-        Group {
-            Text(selectedStatement == "TIME_SERIES_DAILY" ? "Date" : "Metric")
+        if selectedStatement == "TIME_SERIES_DAILY" {
+            Text("Date")
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(DesignSystem.textColor)
                 .padding(.vertical, DesignSystem.smallPadding / 2)
-            Text(selectedStatement == "TIME_SERIES_DAILY" ? "Close" : "Value")
+            Text("Close")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+                .padding(.vertical, DesignSystem.smallPadding / 2)
+            Text("Open")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+                .padding(.vertical, DesignSystem.smallPadding / 2)
+            Text("Volume")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+                .padding(.vertical, DesignSystem.smallPadding / 2)
+        } else {
+            Text("Metric")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+                .padding(.vertical, DesignSystem.smallPadding / 2)
+            Text("Latest Year")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+                .padding(.vertical, DesignSystem.smallPadding / 2)
+            Text("Year -1")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+                .padding(.vertical, DesignSystem.smallPadding / 2)
+            Text("Year -2")
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(DesignSystem.textColor)
@@ -390,21 +413,33 @@ struct DashboardPage: View {
         }
     }
     
+    @ViewBuilder
     private var tableContent: some View {
-        Group {
-            if selectedStatement == "TIME_SERIES_DAILY" {
-                ForEach(stockPrices.reversed().prefix(10)) { data in
-                    Text(data.date, format: .dateTime.month().day().year())
-                        .foregroundColor(DesignSystem.secondaryTextColor)
-                    Text(data.price, format: .currency(code: "USD"))
+        if selectedStatement == "TIME_SERIES_DAILY" {
+            ForEach(stockPrices.reversed().prefix(10)) { data in
+                Text(data.date, format: .dateTime.month().day().year())
+                    .foregroundColor(DesignSystem.secondaryTextColor)
+                Text(data.price, format: .currency(code: "USD"))
+                    .foregroundColor(DesignSystem.textColor)
+                Text(data.open, format: .currency(code: "USD"))
+                    .foregroundColor(DesignSystem.textColor)
+                Text("\(data.volume ?? 0)")
+                    .foregroundColor(DesignSystem.textColor)
+            }
+        } else {
+            ForEach(0..<min(financialData.count, 10), id: \.self) { index in
+                let metricData = financialData[index]
+                Text(formatMetricTitle(metricData[0].metric))
+                    .foregroundColor(DesignSystem.secondaryTextColor)
+                ForEach(0..<min(metricData.count, 3)) { yearIndex in
+                    Text(formatValue(metricData[yearIndex].value))
                         .foregroundColor(DesignSystem.textColor)
                 }
-            } else {
-                ForEach(financialData.prefix(10)) { item in
-                    Text(item.metric)
-                        .foregroundColor(DesignSystem.secondaryTextColor)
-                    Text(item.value)
-                        .foregroundColor(DesignSystem.textColor)
+                if metricData.count < 3 {
+                    ForEach(metricData.count..<3, id: \.self) { _ in
+                        Text("-")
+                            .foregroundColor(DesignSystem.secondaryTextColor)
+                    }
                 }
             }
         }
@@ -514,7 +549,7 @@ struct DashboardPage: View {
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd"
             
-            var allPrices = response.timeSeries.map { (dateString, timeSeries) in
+            let allPrices = response.timeSeries.map { (dateString, timeSeries) in
                 let date = dateFormatter.date(from: dateString) ?? Date()
                 return StockData(
                     date: date,
@@ -528,12 +563,15 @@ struct DashboardPage: View {
             
             let now = Date()
             stockPrices = allPrices.filter { data in
+                let calendar = Calendar.current
                 switch chartRange {
-                case "1D": return data.date > Calendar.current.date(byAdding: .day, value: -1, to: now)!
-                case "1W": return data.date > Calendar.current.date(byAdding: .weekOfYear, value: -1, to: now)!
-                case "1M": return data.date > Calendar.current.date(byAdding: .month, value: -1, to: now)!
-                case "3M": return data.date > Calendar.current.date(byAdding: .month, value: -3, to: now)!
-                case "1Y": return data.date > Calendar.current.date(byAdding: .year, value: -1, to: now)!
+                case "1D":
+                    let startOfDay = calendar.startOfDay(for: now)
+                    return data.date >= startOfDay
+                case "1W": return data.date > calendar.date(byAdding: .weekOfYear, value: -1, to: now)!
+                case "1M": return data.date > calendar.date(byAdding: .month, value: -1, to: now)!
+                case "3M": return data.date > calendar.date(byAdding: .month, value: -3, to: now)!
+                case "1Y": return data.date > calendar.date(byAdding: .year, value: -1, to: now)!
                 default: return true
                 }
             }
@@ -574,39 +612,63 @@ struct DashboardPage: View {
         }
     }
     
-    private func parseFinancialData(_ json: [String: Any]) -> [FinancialData] {
-        var data: [FinancialData] = []
+    private func parseFinancialData(_ json: [String: Any]) -> [[FinancialData]] {
+        var yearlyData: [[FinancialData]] = []
         
         switch selectedStatement {
-        case "INCOME_STATEMENT":
-            if let reports = json["annualReports"] as? [[String: String]],
-               let latestReport = reports.first {
-                data = latestReport.map { FinancialData(metric: $0.key, value: $0.value) }
-            }
-            
-        case "BALANCE_SHEET":
-            if let reports = json["annualReports"] as? [[String: String]],
-               let latestReport = reports.first {
-                data = latestReport.map { FinancialData(metric: $0.key, value: $0.value) }
-            }
-            
-        case "CASH_FLOW":
-            if let reports = json["annualReports"] as? [[String: String]],
-               let latestReport = reports.first {
-                data = latestReport.map { FinancialData(metric: $0.key, value: $0.value) }
+        case "INCOME_STATEMENT", "BALANCE_SHEET", "CASH_FLOW":
+            if let reports = json["annualReports"] as? [[String: String]] {
+                var metricsDict: [String: [String]] = [:]
+                
+                for (index, report) in reports.enumerated() {
+                    guard index < 3 else { break }
+                    for (key, value) in report {
+                        metricsDict[key, default: []].append(value)
+                    }
+                }
+                
+                yearlyData = metricsDict.map { key, values in
+                    values.enumerated().map { FinancialData(metric: key, value: $1) }
+                }.sorted { $0[0].metric < $1[0].metric }
             }
             
         case "OVERVIEW":
-            data = json.map { FinancialData(metric: $0.key, value: String(describing: $0.value)) }
+            let data = json.map { FinancialData(metric: $0.key, value: String(describing: $0.value)) }
+            yearlyData = [data]
             
         case "TIME_SERIES_DAILY":
-            break
+            yearlyData = []
             
         default:
-            break
+            yearlyData = []
         }
         
-        return data.sorted { $0.metric < $1.metric }
+        return yearlyData
+    }
+    
+    private func formatMetricTitle(_ metric: String) -> String {
+        let words = metric.replacingOccurrences(of: "([A-Z])", with: " $1", options: .regularExpression)
+            .replacingOccurrences(of: "_", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+            .capitalized
+            .split(separator: " ")
+            .map { String($0) }
+        
+        return words.joined(separator: " ")
+    }
+    
+    private func formatValue(_ value: String) -> String {
+        if let doubleValue = Double(value) {
+            if doubleValue > 1_000_000_000 {
+                return String(format: "%.2fB", doubleValue / 1_000_000_000)
+            } else if doubleValue > 1_000_000 {
+                return String(format: "%.2fM", doubleValue / 1_000_000)
+            } else if doubleValue > 1_000 {
+                return String(format: "%.2fK", doubleValue / 1_000)
+            }
+            return String(format: "%.2f", doubleValue)
+        }
+        return value
     }
 }
 
