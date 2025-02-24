@@ -5,6 +5,529 @@
 //  Created by Matthew Merino on 2/23/25.
 //
 
+//import SwiftUI
+//import Charts
+//
+//// StockData model
+//struct StockData: Identifiable {
+//    let id = UUID()
+//    let date: Date
+//    let price: Double // close
+//    let open: Double
+//    let high: Double
+//    let low: Double
+//    let volume: Int?
+//}
+//
+//// AlphaVantageResponse for Time Series
+//struct AlphaVantageResponse: Codable {
+//    struct TimeSeries: Codable {
+//        let open: String
+//        let high: String
+//        let low: String
+//        let close: String
+//        let volume: String
+//        
+//        enum CodingKeys: String, CodingKey {
+//            case open = "1. open"
+//            case high = "2. high"
+//            case low = "3. low"
+//            case close = "4. close"
+//            case volume = "5. volume"
+//        }
+//    }
+//    
+//    let timeSeries: [String: TimeSeries]
+//    let metaData: MetaData?
+//    
+//    enum CodingKeys: String, CodingKey {
+//        case timeSeries = "Time Series (Daily)"
+//        case metaData = "Meta Data"
+//    }
+//    
+//    struct MetaData: Codable {
+//        let symbol: String
+//        
+//        enum CodingKeys: String, CodingKey {
+//            case symbol = "2. Symbol"
+//        }
+//    }
+//}
+//
+//// FinancialData for financial statements
+//struct FinancialData: Identifiable {
+//    let id = UUID()
+//    let metric: String
+//    let value: String
+//}
+//
+//// Configuration struct for Alpha Vantage
+//struct AlphaVantageConfig {
+//    let apiKey: String
+//    
+//    static func loadFromFile() -> AlphaVantageConfig? {
+//        // Try to load from a config file (e.g., config.json in the app bundle)
+//        guard let path = Bundle.main.path(forResource: "config", ofType: "json") else {
+//            print("Config file not found in bundle")
+//            return nil
+//        }
+//        
+//        do {
+//            let data = try Data(contentsOf: URL(fileURLWithPath: path))
+//            let json = try JSONSerialization.jsonObject(with: data) as? [String: String]
+//            if let apiKey = json?["alphaVantageAPIKey"] {
+//                return AlphaVantageConfig(apiKey: apiKey)
+//            }
+//            print("API key not found in config file")
+//            return nil
+//        } catch {
+//            print("Error loading config file: \(error.localizedDescription)")
+//            return nil
+//        }
+//    }
+//}
+//
+//// DashboardPage
+//struct DashboardPage: View {
+//    @State private var stockPrices: [StockData] = []
+//    @State private var selectedData: StockData?
+//    @State private var financialData: [FinancialData] = []
+//    @State private var isLoading = false
+//    @State private var errorMessage: String?
+//    @State private var tickerSymbol: String = "AAPL"
+//    @State private var chartRange: String = "1M"
+//    @State private var isExpanded: Bool = false
+//    @State private var selectedStatement: String = "TIME_SERIES_DAILY"
+//    
+//    private let config: AlphaVantageConfig? = AlphaVantageConfig.loadFromFile()
+//    
+//    var body: some View {
+//        Group {
+//            if isExpanded {
+//                HStack(spacing: 20) {
+//                    chartView
+//                    VStack(spacing: 20) {
+//                        statementButtons
+//                        tableView
+//                    }
+//                }
+//            } else {
+//                VStack(spacing: 20) {
+//                    chartView
+//                    statementButtons
+//                    tableView
+//                }
+//            }
+//        }
+//        .task {
+//            await fetchStockData()
+//        }
+//    }
+//    
+//    private var chartView: some View {
+//        VStack(spacing: 10) {
+//            HStack {
+//                Text(tickerSymbol)
+//                    .font(.title)
+//                    .fontWeight(.bold)
+//                    .foregroundColor(.white)
+//                
+//                Spacer()
+//                
+//                Button(action: { isExpanded.toggle() }) {
+//                    Image(systemName: isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+//                        .foregroundColor(.white)
+//                        .padding(8)
+//                        .background(Circle().fill(Color.blue.opacity(0.2)))
+//                }
+//            }
+//            
+//            if isLoading {
+//                ProgressView("Loading stock data...")
+//                    .tint(.white)
+//            } else if let errorMessage = errorMessage {
+//                Text("Error: \(errorMessage)")
+//                    .foregroundColor(.red)
+//            } else {
+//                Chart {
+//                    ForEach(stockPrices) { dataPoint in
+//                        LineMark(
+//                            x: .value("Date", dataPoint.date),
+//                            y: .value("Price", dataPoint.price)
+//                        )
+//                        .foregroundStyle(.blue)
+//                        
+//                        PointMark(
+//                            x: .value("Date", dataPoint.date),
+//                            y: .value("Price", dataPoint.price)
+//                        )
+//                        .foregroundStyle(.blue)
+//                        .symbolSize(selectedData?.id == dataPoint.id ? 100 : 20)
+//                        .annotation(
+//                            position: .overlay,
+//                            alignment: selectedData?.id == dataPoint.id ? .top : .center,
+//                            spacing: 10
+//                        ) {
+//                            if selectedData?.id == dataPoint.id {
+//                                VStack(alignment: .leading, spacing: 4) {
+//                                    Text("Date: \(dataPoint.date, format: .dateTime.month().day())")
+//                                    Text("Close: \(dataPoint.price, format: .currency(code: "USD"))")
+//                                    Text("Open: \(dataPoint.open, format: .currency(code: "USD"))")
+//                                    Text("High: \(dataPoint.high, format: .currency(code: "USD"))")
+//                                    Text("Low: \(dataPoint.low, format: .currency(code: "USD"))")
+//                                }
+//                                .font(.caption)
+//                                .padding(8)
+//                                .background(Color.black.opacity(0.8))
+//                                .foregroundColor(.white)
+//                                .cornerRadius(8)
+//                                .shadow(radius: 4)
+//                            }
+//                        }
+//                    }
+//                }
+//                .chartOverlay { proxy in
+//                    GeometryReader { geometry in
+//                        Rectangle().fill(.clear).contentShape(Rectangle())
+//                            .gesture(
+//                                DragGesture()
+//                                    .onChanged { value in
+//                                        let location = value.location
+//                                        if let date = proxy.value(atX: location.x) as Date?,
+//                                           let price = proxy.value(atY: location.y) as Double?,
+//                                           let closest = stockPrices.min(by: {
+//                                               abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+//                                           }) {
+//                                            selectedData = closest
+//                                        }
+//                                    }
+//                            )
+//                    }
+//                }
+//                .chartXAxis {
+//                    AxisMarks(values: .stride(by: .day)) { value in
+//                        AxisGridLine()
+//                        AxisTick()
+//                        AxisValueLabel(format: .dateTime.month().day())
+//                    }
+//                }
+//                .chartYAxis {
+//                    AxisMarks(position: .leading) { value in
+//                        AxisGridLine()
+//                        AxisTick()
+//                        AxisValueLabel(format: .currency(code: "USD"))
+//                    }
+//                }
+//                .frame(height: isExpanded ? 400 : 300)
+//                .padding()
+//                
+//                HStack(spacing: 10) {
+//                    ChartButton(title: "1D", isSelected: chartRange == "1D") {
+//                        chartRange = "1D"
+//                        Task { await fetchStockData() }
+//                    }
+//                    ChartButton(title: "1W", isSelected: chartRange == "1W") {
+//                        chartRange = "1W"
+//                        Task { await fetchStockData() }
+//                    }
+//                    ChartButton(title: "1M", isSelected: chartRange == "1M") {
+//                        chartRange = "1M"
+//                        Task { await fetchStockData() }
+//                    }
+//                    ChartButton(title: "3M", isSelected: chartRange == "3M") {
+//                        chartRange = "3M"
+//                        Task { await fetchStockData() }
+//                    }
+//                    ChartButton(title: "1Y", isSelected: chartRange == "1Y") {
+//                        chartRange = "1Y"
+//                        Task { await fetchStockData() }
+//                    }
+//                }
+//                .padding(.horizontal)
+//            }
+//        }
+//    }
+//    
+//    private var statementButtons: some View {
+//        ScrollView(.horizontal, showsIndicators: false) {
+//            HStack(spacing: 10) {
+//                StatementButton(title: "Daily", endpoint: "TIME_SERIES_DAILY", isSelected: selectedStatement == "TIME_SERIES_DAILY") {
+//                    selectedStatement = "TIME_SERIES_DAILY"
+//                    Task { await fetchStockData() }
+//                }
+//                StatementButton(title: "Income", endpoint: "INCOME_STATEMENT", isSelected: selectedStatement == "INCOME_STATEMENT") {
+//                    selectedStatement = "INCOME_STATEMENT"
+//                    Task { await fetchFinancialData() }
+//                }
+//                StatementButton(title: "Balance", endpoint: "BALANCE_SHEET", isSelected: selectedStatement == "BALANCE_SHEET") {
+//                    selectedStatement = "BALANCE_SHEET"
+//                    Task { await fetchFinancialData() }
+//                }
+//                StatementButton(title: "Cash Flow", endpoint: "CASH_FLOW", isSelected: selectedStatement == "CASH_FLOW") {
+//                    selectedStatement = "CASH_FLOW"
+//                    Task { await fetchFinancialData() }
+//                }
+//                StatementButton(title: "Overview", endpoint: "OVERVIEW", isSelected: selectedStatement == "OVERVIEW") {
+//                    selectedStatement = "OVERVIEW"
+//                    Task { await fetchFinancialData() }
+//                }
+//            }
+//            .padding(.horizontal)
+//        }
+//    }
+//    
+//    private var tableView: some View {
+//        ScrollView {
+//            VStack(alignment: .leading, spacing: 15) {
+//                Text(selectedStatement.replacingOccurrences(of: "_", with: " ").capitalized)
+//                    .font(.headline)
+//                    .foregroundColor(.white)
+//                
+//                if selectedStatement == "TIME_SERIES_DAILY" {
+//                    LazyVGrid(
+//                        columns: [
+//                            GridItem(.flexible(), alignment: .leading),
+//                            GridItem(.flexible(), alignment: .trailing)
+//                        ],
+//                        spacing: 10
+//                    ) {
+//                        Text("Date").fontWeight(.bold).foregroundColor(.white)
+//                        Text("Close").fontWeight(.bold).foregroundColor(.white)
+//                        
+//                        ForEach(stockPrices.reversed().prefix(10)) { data in
+//                            Text(data.date, format: .dateTime.month().day().year())
+//                                .foregroundColor(.white)
+//                            Text(data.price, format: .currency(code: "USD"))
+//                                .foregroundColor(.white)
+//                        }
+//                    }
+//                } else {
+//                    LazyVGrid(
+//                        columns: [
+//                            GridItem(.flexible(), alignment: .leading),
+//                            GridItem(.flexible(), alignment: .trailing)
+//                        ],
+//                        spacing: 10
+//                    ) {
+//                        Text("Metric").fontWeight(.bold).foregroundColor(.white)
+//                        Text("Value").fontWeight(.bold).foregroundColor(.white)
+//                        
+//                        ForEach(financialData) { item in
+//                            Text(item.metric)
+//                                .foregroundColor(.white)
+//                            Text(item.value)
+//                                .foregroundColor(.white)
+//                        }
+//                    }
+//                }
+//            }
+//            .padding()
+//            .background(Color.gray.opacity(0.1))
+//            .cornerRadius(10)
+//        }
+//        .frame(maxHeight: isExpanded ? 400 : 200)
+//    }
+//    
+//    struct ChartButton: View {
+//        let title: String
+//        let isSelected: Bool
+//        let action: () -> Void
+//        
+//        var body: some View {
+//            Button(action: action) {
+//                Text(title)
+//                    .font(.system(size: 14, weight: .medium))
+//                    .foregroundColor(isSelected ? .white : .gray)
+//                    .padding(.horizontal, 12)
+//                    .padding(.vertical, 6)
+//                    .background(
+//                        Capsule()
+//                            .fill(isSelected ? Color.blue : Color.gray.opacity(0.2))
+//                            .shadow(color: isSelected ? .blue.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
+//                    )
+//            }
+//            .buttonStyle(PlainButtonStyle())
+//        }
+//    }
+//    
+//    struct StatementButton: View {
+//        let title: String
+//        let endpoint: String
+//        let isSelected: Bool
+//        let action: () -> Void
+//        
+//        var body: some View {
+//            Button(action: action) {
+//                Text(title)
+//                    .font(.system(size: 14, weight: .medium))
+//                    .foregroundColor(isSelected ? .white : .gray)
+//                    .padding(.horizontal, 12)
+//                    .padding(.vertical, 6)
+//                    .background(
+//                        Capsule()
+//                            .fill(isSelected ? Color.blue : Color.gray.opacity(0.2))
+//                            .shadow(color: isSelected ? .blue.opacity(0.3) : .clear, radius: 4)
+//                    )
+//            }
+//            .buttonStyle(PlainButtonStyle())
+//        }
+//    }
+//    
+//    private func fetchStockData() async {
+//        guard let apiKey = config?.apiKey else {
+//            errorMessage = "API key not found in configuration"
+//            return
+//        }
+//        
+//        isLoading = true
+//        errorMessage = nil
+//        
+//        let urlString = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=\(tickerSymbol)&apikey=\(apiKey)"
+//        guard let url = URL(string: urlString) else {
+//            errorMessage = "Invalid URL"
+//            isLoading = false
+//            return
+//        }
+//        
+//        do {
+//            let (data, _) = try await URLSession.shared.data(from: url)
+//            let decoder = JSONDecoder()
+//            let response = try decoder.decode(AlphaVantageResponse.self, from: data)
+//            
+//            let dateFormatter = DateFormatter()
+//            dateFormatter.dateFormat = "yyyy-MM-dd"
+//            
+//            var allPrices = response.timeSeries.map { (dateString, timeSeries) in
+//                let date = dateFormatter.date(from: dateString) ?? Date()
+//                return StockData(
+//                    date: date,
+//                    price: Double(timeSeries.close) ?? 0.0,
+//                    open: Double(timeSeries.open) ?? 0.0,
+//                    high: Double(timeSeries.high) ?? 0.0,
+//                    low: Double(timeSeries.low) ?? 0.0,
+//                    volume: Int(timeSeries.volume)
+//                )
+//            }.sorted { $0.date < $1.date }
+//            
+//            let now = Date()
+//            stockPrices = allPrices.filter { data in
+//                switch chartRange {
+//                case "1D": return data.date > Calendar.current.date(byAdding: .day, value: -1, to: now)!
+//                case "1W": return data.date > Calendar.current.date(byAdding: .weekOfYear, value: -1, to: now)!
+//                case "1M": return data.date > Calendar.current.date(byAdding: .month, value: -1, to: now)!
+//                case "3M": return data.date > Calendar.current.date(byAdding: .month, value: -3, to: now)!
+//                case "1Y": return data.date > Calendar.current.date(byAdding: .year, value: -1, to: now)!
+//                default: return true
+//                }
+//            }
+//            
+//            tickerSymbol = response.metaData?.symbol ?? tickerSymbol
+//            isLoading = false
+//        } catch {
+//            errorMessage = error.localizedDescription
+//            isLoading = false
+//        }
+//    }
+//    
+//    private func fetchFinancialData() async {
+//        guard let apiKey = config?.apiKey else {
+//            errorMessage = "API key not found in configuration"
+//            return
+//        }
+//        
+//        isLoading = true
+//        errorMessage = nil
+//        stockPrices = [] // Clear chart data when showing financial statements
+//        
+//        let urlString = "https://www.alphavantage.co/query?function=\(selectedStatement)&symbol=\(tickerSymbol)&apikey=\(apiKey)"
+//        guard let url = URL(string: urlString) else {
+//            errorMessage = "Invalid URL"
+//            isLoading = false
+//            return
+//        }
+//        
+//        do {
+//            let (data, _) = try await URLSession.shared.data(from: url)
+//            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+//            
+//            financialData = parseFinancialData(json)
+//            
+//            isLoading = false
+//        } catch {
+//            errorMessage = error.localizedDescription
+//            isLoading = false
+//        }
+//    }
+//    
+//    private func parseFinancialData(_ json: [String: Any]) -> [FinancialData] {
+//        var data: [FinancialData] = []
+//        
+//        switch selectedStatement {
+//        case "INCOME_STATEMENT":
+//            if let reports = json["annualReports"] as? [[String: String]],
+//               let latestReport = reports.first {
+//                data = latestReport.map { FinancialData(metric: $0.key, value: $0.value) }
+//            }
+//            
+//        case "BALANCE_SHEET":
+//            if let reports = json["annualReports"] as? [[String: String]],
+//               let latestReport = reports.first {
+//                data = latestReport.map { FinancialData(metric: $0.key, value: $0.value) }
+//            }
+//            
+//        case "CASH_FLOW":
+//            if let reports = json["annualReports"] as? [[String: String]],
+//               let latestReport = reports.first {
+//                data = latestReport.map { FinancialData(metric: $0.key, value: $0.value) }
+//            }
+//            
+//        case "OVERVIEW":
+//            data = json.map { FinancialData(metric: $0.key, value: String(describing: $0.value)) }
+//            
+//        default:
+//            break
+//        }
+//        
+//        return data.sorted { $0.metric < $1.metric }
+//    }
+//}
+//
+//// StockAppView
+//struct StockAppView: View {
+//    var body: some View {
+//        TabView {
+//            NavigationStack {
+//                DashboardPage()
+//            }
+//            .tabItem {
+//                Label("Dashboard", systemImage: "chart.xyaxis.line")
+//            }
+//            
+//            NavigationStack {
+//                Text("Portfolio Page")
+//                    .navigationTitle("Portfolio")
+//            }
+//            .tabItem {
+//                Label("Portfolio", systemImage: "briefcase")
+//            }
+//            
+//            NavigationStack {
+//                Text("Settings Page")
+//                    .navigationTitle("Settings")
+//            }
+//            .tabItem {
+//                Label("Settings", systemImage: "gear")
+//            }
+//        }
+//        .accentColor(.blue)
+//        .background(Color.black)
+//    }
+//}
+//
+//#Preview {
+//    StockAppView()
+//        .preferredColorScheme(.dark)
+//}
 
 import SwiftUI
 import Charts
@@ -67,7 +590,6 @@ struct AlphaVantageConfig {
     let apiKey: String
     
     static func loadFromFile() -> AlphaVantageConfig? {
-        // Try to load from a config file (e.g., config.json in the app bundle)
         guard let path = Bundle.main.path(forResource: "config", ofType: "json") else {
             print("Config file not found in bundle")
             return nil
@@ -88,7 +610,20 @@ struct AlphaVantageConfig {
     }
 }
 
-// DashboardPage
+// Design System
+struct DesignSystem {
+    static let primaryColor = Color.blue.opacity(0.9)
+    static let backgroundColor = Color.black
+    static let surfaceColor = Color(.systemGray6).opacity(0.1)
+    static let accentColor = Color.blue
+    static let textColor = Color.white
+    static let secondaryTextColor = Color.gray
+    
+    static let cornerRadius: CGFloat = 12
+    static let padding: CGFloat = 16
+}
+
+// Modern DashboardPage
 struct DashboardPage: View {
     @State private var stockPrices: [StockData] = []
     @State private var selectedData: StockData?
@@ -99,92 +634,97 @@ struct DashboardPage: View {
     @State private var chartRange: String = "1M"
     @State private var isExpanded: Bool = false
     @State private var selectedStatement: String = "TIME_SERIES_DAILY"
+    @State private var isLogScale: Bool = false // New state for scale type
     
     private let config: AlphaVantageConfig? = AlphaVantageConfig.loadFromFile()
     
     var body: some View {
-        Group {
-            if isExpanded {
-                HStack(spacing: 20) {
-                    chartView
-                    VStack(spacing: 20) {
-                        statementButtons
-                        tableView
-                    }
-                }
-            } else {
-                VStack(spacing: 20) {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: DesignSystem.padding) {
+                    headerView
                     chartView
                     statementButtons
-                    tableView
+                    dataTableView
+                }
+                .padding(DesignSystem.padding)
+            }
+            .background(DesignSystem.backgroundColor)
+            .navigationTitle("Market Analysis")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { isExpanded.toggle() }) {
+                        Image(systemName: isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            .foregroundColor(DesignSystem.accentColor)
+                    }
                 }
             }
         }
         .task {
             await fetchStockData()
+            await fetchFinancialData()
+        }
+    }
+    
+    private var headerView: some View {
+        HStack {
+            TextField("Ticker", text: $tickerSymbol)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .submitLabel(.search)
+                .onSubmit {
+                    Task {
+                        await fetchStockData()
+                        await fetchFinancialData()
+                    }
+                }
+                .frame(maxWidth: 100)
+            
+            Text(tickerSymbol)
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+            
+            Spacer()
         }
     }
     
     private var chartView: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text(tickerSymbol)
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Button(action: { isExpanded.toggle() }) {
-                    Image(systemName: isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Circle().fill(Color.blue.opacity(0.2)))
-                }
-            }
-            
-            if isLoading {
-                ProgressView("Loading stock data...")
-                    .tint(.white)
-            } else if let errorMessage = errorMessage {
-                Text("Error: \(errorMessage)")
+        VStack(spacing: DesignSystem.padding) {
+            if isLoading && stockPrices.isEmpty {
+                ProgressView()
+                    .tint(DesignSystem.accentColor)
+                    .frame(height: 300)
+            } else if let errorMessage = errorMessage, stockPrices.isEmpty {
+                Text(errorMessage)
                     .foregroundColor(.red)
+                    .frame(height: 300)
             } else {
                 Chart {
                     ForEach(stockPrices) { dataPoint in
+                        AreaMark(
+                            x: .value("Date", dataPoint.date),
+                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price) // Use log for logarithmic scale
+                        )
+                        .foregroundStyle(
+                            Gradient(colors: [
+                                DesignSystem.primaryColor.opacity(0.3),
+                                DesignSystem.primaryColor.opacity(0.0)
+                            ])
+                        )
+                        
                         LineMark(
                             x: .value("Date", dataPoint.date),
-                            y: .value("Price", dataPoint.price)
+                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price) // Use log for logarithmic scale
                         )
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(DesignSystem.primaryColor)
+                        .lineStyle(StrokeStyle(lineWidth: 2))
                         
                         PointMark(
                             x: .value("Date", dataPoint.date),
-                            y: .value("Price", dataPoint.price)
+                            y: .value("Price", isLogScale ? log(dataPoint.price + 1) : dataPoint.price) // Use log for logarithmic scale
                         )
-                        .foregroundStyle(.blue)
-                        .symbolSize(selectedData?.id == dataPoint.id ? 100 : 20)
-                        .annotation(
-                            position: .overlay,
-                            alignment: selectedData?.id == dataPoint.id ? .top : .center,
-                            spacing: 10
-                        ) {
-                            if selectedData?.id == dataPoint.id {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Date: \(dataPoint.date, format: .dateTime.month().day())")
-                                    Text("Close: \(dataPoint.price, format: .currency(code: "USD"))")
-                                    Text("Open: \(dataPoint.open, format: .currency(code: "USD"))")
-                                    Text("High: \(dataPoint.high, format: .currency(code: "USD"))")
-                                    Text("Low: \(dataPoint.low, format: .currency(code: "USD"))")
-                                }
-                                .font(.caption)
-                                .padding(8)
-                                .background(Color.black.opacity(0.8))
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
-                                .shadow(radius: 4)
-                            }
-                        }
+                        .foregroundStyle(DesignSystem.accentColor)
+                        .symbolSize(selectedData?.id == dataPoint.id ? 100 : 0)
                     }
                 }
                 .chartOverlay { proxy in
@@ -193,68 +733,90 @@ struct DashboardPage: View {
                             .gesture(
                                 DragGesture()
                                     .onChanged { value in
-                                        let location = value.location
-                                        if let date = proxy.value(atX: location.x) as Date?,
-                                           let price = proxy.value(atY: location.y) as Double?,
-                                           let closest = stockPrices.min(by: {
-                                               abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
-                                           }) {
-                                            selectedData = closest
-                                        }
+                                        updateSelectedData(proxy: proxy, location: value.location)
                                     }
+                                    .onEnded { _ in selectedData = nil }
                             )
                     }
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day)) { value in
-                        AxisGridLine()
-                        AxisTick()
+                    AxisMarks(values: .stride(by: .day)) { _ in
+                        AxisGridLine().foregroundStyle(DesignSystem.secondaryTextColor.opacity(0.3))
                         AxisValueLabel(format: .dateTime.month().day())
+                            .foregroundStyle(DesignSystem.secondaryTextColor)
                     }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
-                        AxisGridLine()
-                        AxisTick()
-                        AxisValueLabel(format: .currency(code: "USD"))
+                        AxisGridLine().foregroundStyle(DesignSystem.secondaryTextColor.opacity(0.3))
+                        if isLogScale {
+                            // For logarithmic scale, transform the value back for display
+                            if let doubleValue = value.as(Double.self) {
+                                AxisValueLabel("\(exp(doubleValue) - 1, format: .currency(code: "USD"))")
+                                    .foregroundStyle(DesignSystem.secondaryTextColor)
+                            }
+                        } else {
+                            AxisValueLabel("\(value.as(Double.self) ?? 0, format: .currency(code: "USD"))")
+                                .foregroundStyle(DesignSystem.secondaryTextColor)
+                        }
                     }
                 }
                 .frame(height: isExpanded ? 400 : 300)
-                .padding()
+                .background(DesignSystem.surfaceColor)
+                .cornerRadius(DesignSystem.cornerRadius)
+                .overlay(
+                    selectedData.map { data in
+                        ChartAnnotation(data: data)
+                    }
+                )
                 
-                HStack(spacing: 10) {
-                    ChartButton(title: "1D", isSelected: chartRange == "1D") {
-                        chartRange = "1D"
-                        Task { await fetchStockData() }
-                    }
-                    ChartButton(title: "1W", isSelected: chartRange == "1W") {
-                        chartRange = "1W"
-                        Task { await fetchStockData() }
-                    }
-                    ChartButton(title: "1M", isSelected: chartRange == "1M") {
-                        chartRange = "1M"
-                        Task { await fetchStockData() }
-                    }
-                    ChartButton(title: "3M", isSelected: chartRange == "3M") {
-                        chartRange = "3M"
-                        Task { await fetchStockData() }
-                    }
-                    ChartButton(title: "1Y", isSelected: chartRange == "1Y") {
-                        chartRange = "1Y"
-                        Task { await fetchStockData() }
-                    }
+                HStack {
+                    rangeSelector
+                    scaleSelector
                 }
-                .padding(.horizontal)
             }
+        }
+    }
+    
+    private var rangeSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(["1D", "1W", "1M", "3M", "1Y"], id: \.self) { range in
+                    ChartButton(
+                        title: range,
+                        isSelected: chartRange == range,
+                        action: {
+                            chartRange = range
+                            Task { await fetchStockData() }
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+    
+    private var scaleSelector: some View {
+        HStack(spacing: 8) {
+            ChartButton(
+                title: "Linear",
+                isSelected: !isLogScale,
+                action: { isLogScale = false }
+            )
+            ChartButton(
+                title: "Log",
+                isSelected: isLogScale,
+                action: { isLogScale = true }
+            )
         }
     }
     
     private var statementButtons: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 StatementButton(title: "Daily", endpoint: "TIME_SERIES_DAILY", isSelected: selectedStatement == "TIME_SERIES_DAILY") {
                     selectedStatement = "TIME_SERIES_DAILY"
-                    Task { await fetchStockData() }
+                    Task { await fetchFinancialData() }
                 }
                 StatementButton(title: "Income", endpoint: "INCOME_STATEMENT", isSelected: selectedStatement == "INCOME_STATEMENT") {
                     selectedStatement = "INCOME_STATEMENT"
@@ -273,62 +835,73 @@ struct DashboardPage: View {
                     Task { await fetchFinancialData() }
                 }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 4)
         }
     }
     
-    private var tableView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 15) {
-                Text(selectedStatement.replacingOccurrences(of: "_", with: " ").capitalized)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                if selectedStatement == "TIME_SERIES_DAILY" {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible(), alignment: .leading),
-                            GridItem(.flexible(), alignment: .trailing)
-                        ],
-                        spacing: 10
-                    ) {
-                        Text("Date").fontWeight(.bold).foregroundColor(.white)
-                        Text("Close").fontWeight(.bold).foregroundColor(.white)
-                        
-                        ForEach(stockPrices.reversed().prefix(10)) { data in
-                            Text(data.date, format: .dateTime.month().day().year())
-                                .foregroundColor(.white)
-                            Text(data.price, format: .currency(code: "USD"))
-                                .foregroundColor(.white)
-                        }
-                    }
-                } else {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible(), alignment: .leading),
-                            GridItem(.flexible(), alignment: .trailing)
-                        ],
-                        spacing: 10
-                    ) {
-                        Text("Metric").fontWeight(.bold).foregroundColor(.white)
-                        Text("Value").fontWeight(.bold).foregroundColor(.white)
-                        
-                        ForEach(financialData) { item in
-                            Text(item.metric)
-                                .foregroundColor(.white)
-                            Text(item.value)
-                                .foregroundColor(.white)
-                        }
-                    }
+    private var dataTableView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(selectedStatement.replacingOccurrences(of: "_", with: " ").capitalized)
+                .font(.headline)
+                .foregroundColor(DesignSystem.textColor)
+            
+            if isLoading && financialData.isEmpty {
+                ProgressView()
+                    .tint(DesignSystem.accentColor)
+            } else if let errorMessage = errorMessage, financialData.isEmpty {
+                Text(errorMessage)
+                    .foregroundColor(.red)
+            } else {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), alignment: .leading),
+                        GridItem(.flexible(), alignment: .trailing)
+                    ],
+                    spacing: 8
+                ) {
+                    tableHeader
+                    tableContent
                 }
             }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(10)
         }
+        .padding(DesignSystem.padding)
+        .background(DesignSystem.surfaceColor)
+        .cornerRadius(DesignSystem.cornerRadius)
         .frame(maxHeight: isExpanded ? 400 : 200)
     }
     
+    private var tableHeader: some View {
+        Group {
+            Text(selectedStatement == "TIME_SERIES_DAILY" ? "Date" : "Metric")
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+            Text(selectedStatement == "TIME_SERIES_DAILY" ? "Close" : "Value")
+                .fontWeight(.semibold)
+                .foregroundColor(DesignSystem.textColor)
+        }
+    }
+    
+    private var tableContent: some View {
+        Group {
+            if selectedStatement == "TIME_SERIES_DAILY" {
+                ForEach(stockPrices.reversed().prefix(10)) { data in
+                    Text(data.date, format: .dateTime.month().day().year())
+                        .foregroundColor(DesignSystem.secondaryTextColor)
+                    Text(data.price, format: .currency(code: "USD"))
+                        .foregroundColor(DesignSystem.textColor)
+                }
+            } else {
+                ForEach(financialData.prefix(10)) { item in
+                    Text(item.metric)
+                        .foregroundColor(DesignSystem.secondaryTextColor)
+                    Text(item.value)
+                        .foregroundColor(DesignSystem.textColor)
+                }
+            }
+        }
+    }
+    
+    // Custom Components
     struct ChartButton: View {
         let title: String
         let isSelected: Bool
@@ -338,13 +911,12 @@ struct DashboardPage: View {
             Button(action: action) {
                 Text(title)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(isSelected ? .white : .gray)
+                    .foregroundColor(isSelected ? DesignSystem.textColor : DesignSystem.secondaryTextColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(isSelected ? Color.blue : Color.gray.opacity(0.2))
-                            .shadow(color: isSelected ? .blue.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
+                            .fill(isSelected ? DesignSystem.primaryColor : DesignSystem.surfaceColor)
                     )
             }
             .buttonStyle(PlainButtonStyle())
@@ -361,16 +933,45 @@ struct DashboardPage: View {
             Button(action: action) {
                 Text(title)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(isSelected ? .white : .gray)
+                    .foregroundColor(isSelected ? DesignSystem.textColor : DesignSystem.secondaryTextColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(isSelected ? Color.blue : Color.gray.opacity(0.2))
-                            .shadow(color: isSelected ? .blue.opacity(0.3) : .clear, radius: 4)
+                            .fill(isSelected ? DesignSystem.primaryColor : DesignSystem.surfaceColor)
                     )
             }
             .buttonStyle(PlainButtonStyle())
+        }
+    }
+    
+    struct ChartAnnotation: View {
+        let data: StockData
+        
+        var body: some View {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Date: \(data.date, format: .dateTime.month().day())")
+                Text("Close: \(data.price, format: .currency(code: "USD"))")
+                Text("Open: \(data.open, format: .currency(code: "USD"))")
+                Text("High: \(data.high, format: .currency(code: "USD"))")
+                Text("Low: \(data.low, format: .currency(code: "USD"))")
+            }
+            .font(.caption)
+            .padding(8)
+            .background(DesignSystem.backgroundColor.opacity(0.95))
+            .foregroundColor(DesignSystem.textColor)
+            .cornerRadius(8)
+            .shadow(radius: 4)
+            .position(x: 100, y: 50)
+        }
+    }
+    
+    private func updateSelectedData(proxy: ChartProxy, location: CGPoint) {
+        if let date = proxy.value(atX: location.x) as Date?,
+           let closest = stockPrices.min(by: {
+               abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+           }) {
+            selectedData = closest
         }
     }
     
@@ -438,7 +1039,6 @@ struct DashboardPage: View {
         
         isLoading = true
         errorMessage = nil
-        stockPrices = [] // Clear chart data when showing financial statements
         
         let urlString = "https://www.alphavantage.co/query?function=\(selectedStatement)&symbol=\(tickerSymbol)&apikey=\(apiKey)"
         guard let url = URL(string: urlString) else {
@@ -452,7 +1052,6 @@ struct DashboardPage: View {
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
             
             financialData = parseFinancialData(json)
-            
             isLoading = false
         } catch {
             errorMessage = error.localizedDescription
@@ -485,6 +1084,9 @@ struct DashboardPage: View {
         case "OVERVIEW":
             data = json.map { FinancialData(metric: $0.key, value: String(describing: $0.value)) }
             
+        case "TIME_SERIES_DAILY":
+            break
+            
         default:
             break
         }
@@ -493,16 +1095,14 @@ struct DashboardPage: View {
     }
 }
 
-// StockAppView
+// Modern StockAppView
 struct StockAppView: View {
     var body: some View {
         TabView {
-            NavigationStack {
-                DashboardPage()
-            }
-            .tabItem {
-                Label("Dashboard", systemImage: "chart.xyaxis.line")
-            }
+            DashboardPage()
+                .tabItem {
+                    Label("Dashboard", systemImage: "chart.xyaxis.line")
+                }
             
             NavigationStack {
                 Text("Portfolio Page")
@@ -520,12 +1120,11 @@ struct StockAppView: View {
                 Label("Settings", systemImage: "gear")
             }
         }
-        .accentColor(.blue)
-        .background(Color.black)
+        .accentColor(DesignSystem.accentColor)
+        .preferredColorScheme(.dark)
     }
 }
 
 #Preview {
     StockAppView()
-        .preferredColorScheme(.dark)
 }
