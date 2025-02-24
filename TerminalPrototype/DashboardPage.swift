@@ -8,14 +8,14 @@
 import SwiftUI
 import Charts
 
-// Data model for stock prices
+// Data model for stock prices (unchanged)
 struct StockData: Identifiable {
     let id = UUID()
     let date: Date
     let price: Double
 }
 
-// Alpha Vantage API response structure
+// Alpha Vantage API response structure (unchanged)
 struct AlphaVantageResponse: Codable {
     struct TimeSeries: Codable {
         let open: String
@@ -38,13 +38,14 @@ struct AlphaVantageResponse: Codable {
     }
 }
 
+// Dashboard Page View (unchanged)
 struct DashboardPage: View {
     @State private var stockPrices: [StockData] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
     
     private let config = Config.loadFromFile()
-    private let symbol = "AAPL" // Example stock symbol
+    private let symbol = "AAPL"
     
     var body: some View {
         VStack {
@@ -116,7 +117,6 @@ struct DashboardPage: View {
             let decoder = JSONDecoder()
             let response = try decoder.decode(AlphaVantageResponse.self, from: data)
             
-            // Convert API response to StockData array
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd"
             
@@ -134,8 +134,39 @@ struct DashboardPage: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        DashboardPage()
+// Main App View (renamed from ContentView to StockAppView)
+struct StockAppView: View {
+    var body: some View {
+        TabView {
+            NavigationStack {
+                DashboardPage()
+            }
+            .tabItem {
+                Label("Dashboard", systemImage: "chart.xyaxis.line")
+            }
+            
+            NavigationStack {
+                Text("Portfolio Page")
+                    .navigationTitle("Portfolio")
+            }
+            .tabItem {
+                Label("Portfolio", systemImage: "briefcase")
+            }
+            
+            NavigationStack {
+                Text("Settings Page")
+                    .navigationTitle("Settings")
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gear")
+            }
+        }
+        .accentColor(.blue)
+        .background(Color.black)
     }
+}
+
+#Preview {
+    StockAppView()
+        .preferredColorScheme(.dark)
 }

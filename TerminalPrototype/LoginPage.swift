@@ -21,7 +21,7 @@ struct LoginPage: View {
             
             TextField("Username or Email", text: $username)
                 .padding()
-                .background(Color.black.opacity(0.0)) // Already transparent
+                .background(Color.black.opacity(0.0))
                 .foregroundStyle(.white)
                 .border(Color.white, width: 1)
                 .cornerRadius(8)
@@ -30,7 +30,7 @@ struct LoginPage: View {
             
             SecureField("Password", text: $password)
                 .padding()
-                .background(Color.black.opacity(0.0)) // Already transparent
+                .background(Color.black.opacity(0.0))
                 .foregroundStyle(.white)
                 .border(Color.white, width: 1)
                 .cornerRadius(8)
