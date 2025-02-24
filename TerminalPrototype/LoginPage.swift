@@ -14,7 +14,7 @@ struct LoginPage: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            Text("Login")
+            Text("Access Your Terminal")
                 .font(.title)
                 .foregroundStyle(.white)
                 .padding(.bottom, 20)
@@ -52,7 +52,7 @@ struct LoginPage: View {
             .padding(.horizontal)
         }
         .padding()
-        .background(Color.clear) // Explicitly make the entire view's background transparent
+        .background(Color.clear)
         .fullScreenCover(isPresented: $isLoggedIn) {
             DashboardPage()
         }
