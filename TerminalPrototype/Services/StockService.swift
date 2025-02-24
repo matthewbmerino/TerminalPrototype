@@ -54,37 +54,52 @@ protocol StockServiceProtocol: AnyObject {
 }
 
 /// Represents different time ranges for stock data
-enum TimeRange: String, CaseIterable, Identifiable {
-    case day = "TIME_SERIES_INTRADAY"
-    case week = "TIME_SERIES_DAILY"
-    case month = "TIME_SERIES_WEEKLY"
-    case year = "TIME_SERIES_MONTHLY"
+public enum TimeRange: String, CaseIterable, Identifiable {
+    case month = "Monthly"
+    case year = "Yearly"
+    case max = "Max"
     
-    var id: String { rawValue }
+    public var id: String { rawValue }
     
-    var interval: String {
+    var apiFunction: String {
         switch self {
-        case .day:
-            return "5min"
-        case .week:
-            return "Daily"
         case .month:
-            return "Weekly"
-        case .year:
-            return "Monthly"
+            return "TIME_SERIES_WEEKLY"
+        case .year, .max:
+            return "TIME_SERIES_MONTHLY"
         }
     }
     
     var timeSeriesKey: String {
         switch self {
-        case .day:
-            return "Time Series (5min)"
-        case .week:
-            return "Time Series (Daily)"
         case .month:
             return "Weekly Time Series"
-        case .year:
+        case .year, .max:
             return "Monthly Time Series"
+        }
+    }
+    
+    var dateFormat: String {
+        return "yyyy-MM-dd"
+    }
+    
+    var outputSize: String {
+        switch self {
+        case .max:
+            return "full"
+        default:
+            return "compact"
+        }
+    }
+    
+    var dataPoints: Int {
+        switch self {
+        case .month:
+            return 12  // Show 3 months of weekly data
+        case .year:
+            return 24  // Show 2 years of monthly data
+        case .max:
+            return Int.max
         }
     }
 }
@@ -160,22 +175,22 @@ final class StockService: StockServiceProtocol, ObservableObject {
     ///   - range: The time range to fetch
     /// - Returns: Array of time series data points
     func fetchTimeSeries(symbol: String, range: TimeRange) async throws -> [Models.TimeSeriesData] {
-        logger.debug("Fetching time series with resolved types: TimeSeriesData=\(String(describing: Models.TimeSeriesData.self))")
+        logger.debug("Fetching \(range.rawValue) data for \(symbol)")
         isLoading = true
         defer { isLoading = false }
         
         do {
             let apiKey = try configService.getAlphaVantageAPIKey()
             var components = URLComponents(string: baseURL)
-            components?.queryItems = [
-                URLQueryItem(name: "function", value: range.rawValue),
+            
+            var queryItems = [
+                URLQueryItem(name: "function", value: range.apiFunction),
                 URLQueryItem(name: "symbol", value: symbol),
-                URLQueryItem(name: "apikey", value: apiKey)
+                URLQueryItem(name: "apikey", value: apiKey),
+                URLQueryItem(name: "outputsize", value: range.outputSize)
             ]
             
-            if range == .day {
-                components?.queryItems?.append(URLQueryItem(name: "interval", value: range.interval))
-            }
+            components?.queryItems = queryItems
             
             guard let url = components?.url else {
                 throw StockServiceError.invalidURL
@@ -189,35 +204,42 @@ final class StockService: StockServiceProtocol, ObservableObject {
             }
             
             let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = range == .day ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd"
+            dateFormatter.dateFormat = range.dateFormat
             
-            let processedData = timeSeries.compactMap { (dateStr, values) -> Models.TimeSeriesData? in
-                guard let date = dateFormatter.date(from: dateStr),
-                      let open = Double(values["1. open"] ?? ""),
-                      let high = Double(values["2. high"] ?? ""),
-                      let low = Double(values["3. low"] ?? ""),
-                      let close = Double(values["4. close"] ?? ""),
-                      let volume = Int(values["5. volume"] ?? "") else {
-                    return nil
+            let processedData = timeSeries
+                .compactMap { (dateStr, values) -> Models.TimeSeriesData? in
+                    guard let date = dateFormatter.date(from: dateStr),
+                          let open = Double(values["1. open"] ?? ""),
+                          let high = Double(values["2. high"] ?? ""),
+                          let low = Double(values["3. low"] ?? ""),
+                          let close = Double(values["4. close"] ?? ""),
+                          let adjustedClose = Double(values["5. adjusted close"] ?? ""),
+                          let volume = Int(values["6. volume"] ?? "") else {
+                        return nil
+                    }
+                    
+                    return Models.TimeSeriesData(
+                        date: date,
+                        open: open,
+                        high: high,
+                        low: low,
+                        close: close,
+                        adjustedClose: adjustedClose,
+                        volume: volume
+                    )
                 }
-                
-                return Models.TimeSeriesData(
-                    date: date,
-                    open: open,
-                    high: high,
-                    low: low,
-                    close: close,
-                    volume: volume
-                )
-            }
-            .sorted { $0.date < $1.date }
+                .sorted { $0.date < $1.date }
+            
+            let limitedData = range == .max ? 
+                processedData : 
+                Array(processedData.suffix(range.dataPoints))
             
             DispatchQueue.main.async {
-                self.timeSeriesData = processedData
+                self.timeSeriesData = limitedData
                 self.error = nil
             }
             
-            return processedData
+            return limitedData
         } catch let error as ConfigurationError {
             self.error = .configurationError(error)
             throw StockServiceError.configurationError(error)

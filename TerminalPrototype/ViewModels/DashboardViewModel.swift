@@ -45,7 +45,7 @@ final class DashboardViewModel: ObservableObject {
     
     init(stockService: StockServiceProtocol = StockService(),
          initialSymbol: String = "AAPL",
-         initialTimeRange: TimeRange = .day) {
+         initialTimeRange: TimeRange = .month) {
         Self.logTypeResolution()
         logger.debug("📱 Initializing DashboardViewModel")
         

@@ -56,14 +56,16 @@ public enum Models {
         public let high: Double
         public let low: Double
         public let close: Double
+        public let adjustedClose: Double
         public let volume: Int
         
-        public init(date: Date, open: Double, high: Double, low: Double, close: Double, volume: Int) {
+        public init(date: Date, open: Double, high: Double, low: Double, close: Double, adjustedClose: Double, volume: Int) {
             self.date = date
             self.open = open
             self.high = high
             self.low = low
             self.close = close
+            self.adjustedClose = adjustedClose
             self.volume = volume
         }
     }
